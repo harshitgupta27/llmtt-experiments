@@ -7,6 +7,8 @@
 import argparse
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
+import sys
+sys.path.append('/Users/harshitgupta/llmtt-experiments')
 
 import networkx as nx
 import pandas as pd
