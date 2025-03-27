@@ -87,9 +87,12 @@ class TransformerLensTransparentLlm(TransparentLlm):
         supported_model_name: str = None,
     ):
         if device == "gpu":
-            self.device = "cuda"
-            if not torch.cuda.is_available():
-                RuntimeError("Asked to run on gpu, but torch couldn't find cuda")
+            if torch.cuda.is_available():
+                self.device = "cuda"
+            elif torch.backends.mps.is_available():
+                self.device = "mps"
+            else:
+                RuntimeError("Asked to run on gpu, but torch couldn't find cuda or mps")
         elif device == "cpu":
             self.device = "cpu"
         else:

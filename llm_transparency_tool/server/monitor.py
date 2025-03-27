@@ -20,18 +20,27 @@ def init_gpu_memory():
 
     This function is used to initialize CUDA and measure the overhead.
     """
-    if not torch.cuda.is_available():
+    if not torch.cuda.is_available() and not torch.backends.mps.is_available():
         return {}
 
     # lets init torch gpu for a moment
-    gpu_memory_overhead = {}
-    for i in range(torch.cuda.device_count()):
-        torch.ones(1).cuda(i)
-        free, total = torch.cuda.mem_get_info(i)
-        occupied = total - free
-        gpu_memory_overhead[i] = occupied
+    if torch.cuda.is_available():
+        gpu_memory_overhead = {}
+        for i in range(torch.cuda.device_count()):
+            torch.ones(1).cuda(i)
+            free, total = torch.cuda.mem_get_info(i)
+            occupied = total - free
+            gpu_memory_overhead[i] = occupied
 
-    return gpu_memory_overhead
+        return gpu_memory_overhead
+    else:
+        mps_device = torch.device("mps")
+        torch.ones(1, device=mps_device)
+        
+        return {
+            "overhead": torch.mps.current_allocated_memory(),
+            "total": torch.mps.driver_allocated_memory()
+        }        
 
 
 class SystemMonitor:
@@ -62,7 +71,6 @@ class SystemMonitor:
             return
 
         self.profiler.__exit__(exc_type, exc_value, traceback)
-
         self.report_gpu_usage()
         self.report_profiler()
 
@@ -73,25 +81,44 @@ class SystemMonitor:
 
     def report_gpu_usage(self):
 
-        if not torch.cuda.is_available():
+        if not torch.cuda.is_available() and not torch.backends.mps.is_available():
             return
 
-        data = []
+        if torch.cuda.is_available():
+            data = []
 
-        for i in range(torch.cuda.device_count()):
-            free, total = torch.cuda.mem_get_info(i)
-            occupied = total - free
-            data.append({
-                'overhead': self.overhead[i],
-                'occupied': occupied - self.overhead[i],
-                'free': free,
-            })
-        df = pd.DataFrame(data, columns=["overhead", "occupied", "free"])
+            for i in range(torch.cuda.device_count()):
+                free, total = torch.cuda.mem_get_info(i)
+                occupied = total - free
+                data.append({
+                    'overhead': self.overhead[i],
+                    'occupied': occupied - self.overhead[i],
+                    'free': free,
+                })
+            df = pd.DataFrame(data, columns=["overhead", "occupied", "free"])
 
-        with st.sidebar.expander("System"):
-            st.write("GPU memory on server")
-            df /= 1024 ** 3  # Convert to GB
-            st.bar_chart(df, width=200, height=200, color=["#fefefe", "#84c9ff", "#fe2b2b"])
+            with st.sidebar.expander("System"):
+                st.write("GPU memory on server")
+                df /= 1024 ** 3  # Convert to GB
+                st.bar_chart(df, width=200, height=200, color=["#fefefe", "#84c9ff", "#fe2b2b"])
+        else:
+            current = torch.mps.current_allocated_memory()
+            total = torch.mps.driver_allocated_memory()
+            free = total - current
+            
+            data = [{
+                'overhead': self.overhead["overhead"],
+                'occupied': current - self.overhead["overhead"],
+                'free': free
+            }]
+            
+            df = pd.DataFrame(data, columns=["overhead", "occupied", "free"])
+            
+            with st.sidebar.expander("System"):
+                st.write("MPS memory on server")
+                df /= 1024 ** 3  # Convert to GB
+                st.bar_chart(df, width=200, height=200, 
+                            color=["#fefefe", "#84c9ff", "#fe2b2b"])
 
     def report_profiler(self):
         html_code = self.profiler.output_html()

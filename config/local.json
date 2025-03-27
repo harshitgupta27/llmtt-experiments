@@ -1,10 +1,11 @@
 {
     "allow_loading_dataset_files": true,
+    "max_user_string_length": 1000,
     "preloaded_dataset_filename": "sample_input.txt",
     "debug": true,
     "models": {
         "": null,
-
+        "meta-llama/Llama-3.2-1B": null,
         "meta-llama/Meta-Llama-3-8B": null,
         "meta-llama/Meta-Llama-3-70B": null,
         "meta-llama/Meta-Llama-3-8B-Instruct": null,
@@ -51,6 +52,6 @@
         "facebook/opt-13b": null,
         "facebook/opt-30b": null
     },
-    "default_model": "",
+    "default_model": "meta-llama/Llama-3.2-1B",
     "demo_mode": false
 }

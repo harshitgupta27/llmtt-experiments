@@ -545,10 +545,14 @@ class App:
 
     def run_inference(self):
 
-        with autocast(enabled=self.amp_enabled, device_type="cuda", dtype=self.dtype):
+        if torch.cuda.is_available():
+            dev = "cuda"
+        else:
+            dev = "mps"
+        with autocast(enabled=self.amp_enabled, device_type=dev, dtype=self.dtype):
             self._stateful_model = cached_run_inference_and_populate_state(self.stateful_model, [self.sentence])
 
-        with autocast(enabled=self.amp_enabled, device_type="cuda", dtype=self.dtype):
+        with autocast(enabled=self.amp_enabled, device_type=dev, dtype=self.dtype):
             self._graph = get_contribution_graph(
                 self.stateful_model,
                 self.model_key,

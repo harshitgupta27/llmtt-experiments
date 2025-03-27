@@ -26,7 +26,7 @@ B0 = 0
 
 def possible_devices() -> List[str]:
     devices = []
-    if torch.cuda.is_available():
+    if torch.cuda.is_available() or torch.backends.mps.is_available():
         devices.append("gpu")
     devices.append("cpu")
     return devices
