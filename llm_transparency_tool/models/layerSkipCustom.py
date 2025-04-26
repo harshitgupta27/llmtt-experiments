@@ -16,13 +16,6 @@ class LayerSkipLlamaTransparentLlm(TransparentLlm):
         self.model.config.pad_token_id = self.tokenizer.pad_token_id
         self.model.config.output_hidden_states = True
 
-    def create_assistant_model(self, early_exit: int):
-        weights_memo = {id(w): w for w in self.model.parameters()}
-        assistant_model = deepcopy(self.model, memo=weights_memo)
-        assistant_model.model.layers = assistant_model.model.layers[:early_exit]
-        del assistant_model.model.layers[early_exit:]
-        return assistant_model
-
     def eval(self):
         self.model.eval()
         return self
@@ -30,17 +23,6 @@ class LayerSkipLlamaTransparentLlm(TransparentLlm):
     def train(self, mode=True):
         self.model.train(mode)
         return self
-
-    # def model_info(self) -> ModelInfo:
-    #     config = self.model.config
-    #     return ModelInfo(
-    #         name=config.name_or_path,
-    #         n_params_estimate=sum(p.numel() for p in self.model.parameters()),
-    #         n_layers=config.num_hidden_layers,
-    #         n_heads=config.num_attention_heads,
-    #         d_model=config.hidden_size,
-    #         d_vocab=config.vocab_size
-    #     )
     
     def model_info(self) -> ModelInfo:
         config = self.model.config
@@ -54,33 +36,12 @@ class LayerSkipLlamaTransparentLlm(TransparentLlm):
         )
 
     
-    # def run(self, sentences: List[str]) -> None:
-    #     inputs = self.tokenizer(sentences, return_tensors="pt", padding=True).to(self.model.device)
-    #     with torch.no_grad():
-    #         outputs = self.model(**inputs, output_hidden_states=True, output_attentions=True)
-    #     self.logits = outputs.logits
-    #     self.cache = {
-    #         'hidden_states': outputs.hidden_states,
-    #         'attentions': outputs.attentions,
-    #         'input_ids': inputs.input_ids
-    #     }
-    #     self._last_run = {
-    #         'logits': self.logits,
-    #         'input_ids': self.cache['input_ids'],
-    #         'hidden_states': self.cache['hidden_states'],
-    #     }
     @torch.no_grad()
-    def run(self, sentences: List[str], early_exit: int = 4) -> None:
+    def run(self, sentences: List[str]) -> None:
         inputs = self.tokenizer(sentences, return_tensors="pt", padding=True).to(self.model.device)
-        assistant_model = self.create_assistant_model(early_exit)
         with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                generation_config=self.model.generation_config,
-                assistant_model=assistant_model,
-                max_new_tokens=512
-            )
-        self.logits = outputs
+            outputs = self.model(**inputs, output_hidden_states=True, output_attentions=True)
+        self.logits = outputs.logits
         self.cache = {
             'hidden_states': outputs.hidden_states,
             'attentions': outputs.attentions,
@@ -88,8 +49,9 @@ class LayerSkipLlamaTransparentLlm(TransparentLlm):
         }
         self._last_run = {
             'logits': self.logits,
-            'input_ids': inputs.input_ids,
+            'input_ids': self.cache['input_ids'],
             'hidden_states': self.cache['hidden_states'],
+            'attentions': self.cache['attentions']
         }
 
     def batch_size(self) -> int:
@@ -201,27 +163,18 @@ class LayerSkipLlamaTransparentLlm(TransparentLlm):
         attn_output = self.cache['attentions'][layer][batch_i, head, pos]
         return self.model.model.layers[layer].self_attn.o_proj(attn_output.unsqueeze(0)).squeeze(0)
 
-    # def decomposed_attn(
-    #     self, batch_i: int, layer: int
-    # ) -> Float[torch.Tensor, "pos key_pos head d_model"]:
-    #     if not self.cache:
-    #         raise RuntimeError("Model has not been run yet. Call run() first.")
-    #     attn = self.model.model.layers[layer].self_attn
-    #     hidden_states = self.cache['hidden_states'][layer][batch_i]
-    #     q = attn.q_proj(hidden_states)
-    #     k = attn.k_proj(hidden_states)
-    #     v = attn.v_proj(hidden_states)
-    #     q = q.view(q.shape[0], attn.num_attention_heads, -1)
-    #     k = k.view(k.shape[0], attn.num_key_value_heads, -1)
-    #     v = v.view(v.shape[0], attn.num_key_value_heads, -1)
-    #     attn_weights = torch.einsum('qhd,khd->hqk', q, k)
-    #     attn_weights = torch.nn.functional.softmax(attn_weights, dim=-1)
-    #     attn_output = torch.einsum('hqk,khd->qkhd', attn_weights, v)
-    #     return einsum(
-    #         "pos key_pos head d_head, d_head d_model -> pos key_pos head d_model",
-    #         attn_output,
-    #         attn.o_proj.weight.t(),
-    #     )
+    def attention_output_per_head(
+        self,
+        batch_i: int,
+        layer: int,
+        pos: int,
+        head: int,
+    ) -> Float[torch.Tensor, "d_model"]:
+        if not self.cache:
+            raise RuntimeError("Model has not been run yet. Call run() first.")
+        # Clone the tensor to convert inference tensor to regular tensor
+        attn_output = self.cache['attentions'][layer][batch_i, head, pos].clone()
+        return self.model.model.layers[layer].self_attn.o_proj(attn_output.unsqueeze(0)).squeeze(0)
 
     def decomposed_attn(
         self, batch_i: int, layer: int
@@ -268,23 +221,3 @@ class LayerSkipLlamaTransparentLlm(TransparentLlm):
             attn_output,
             attn_layer.o_proj.weight.view(num_heads, head_dim, config.hidden_size)
         )
-
-
-
-    # def ffn_out(self, layer: int) -> Float[torch.Tensor, "batch pos d_model"]:
-    #     raise NotImplementedError("ffn_out is not implemented for LayerSkipLlama")
-
-    # def decomposed_ffn_out(self, batch_i: int, layer: int, pos: int) -> Float[torch.Tensor, "hidden d_model"]:
-    #     raise NotImplementedError("decomposed_ffn_out is not implemented for LayerSkipLlama")
-
-    # def neuron_activations(self, batch_i: int, layer: int, pos: int) -> Float[torch.Tensor, "d_ffn"]:
-    #     raise NotImplementedError("neuron_activations is not implemented for LayerSkipLlama")
-
-    # def neuron_output(self, layer: int, neuron: int) -> Float[torch.Tensor, "d_model"]:
-    #     raise NotImplementedError("neuron_output is not implemented for LayerSkipLlama")
-
-    # def attention_output(self, batch_i: int, layer: int, pos: int, head: int) -> Float[torch.Tensor, "d_model"]:
-    #     raise NotImplementedError("attention_output is not implemented for LayerSkipLlama")
-
-    # def decomposed_attn(self, batch_i: int, layer: int) -> Float[torch.Tensor, "source target head d_model"]:
-    #     raise NotImplementedError("decomposed_attn is not implemented for LayerSkipLlama")
