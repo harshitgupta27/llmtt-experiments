@@ -13,7 +13,7 @@ import torch
 import transformers
 
 import llm_transparency_tool.routes.graph
-from llm_transparency_tool.models.tlens_model import TransformerLensTransparentLlm
+from llm_transparency_tool.models.tlens_model import LayerSkipTransparentLlm
 from llm_transparency_tool.models.transparent_llm import TransparentLlm
 
 GPU = "gpu"
@@ -41,7 +41,7 @@ def load_dataset(filename) -> List[str]:
 
 @st.cache_resource(
     hash_funcs={
-        TransformerLensTransparentLlm: id
+        LayerSkipTransparentLlm: id
     }
 )
 def load_model(
@@ -60,13 +60,19 @@ def load_model(
     causal_lm = None
     tokenizer = None
 
-    tl_lm = TransformerLensTransparentLlm(
+    # tl_lm = TransformerLensTransparentLlm(
+    #     model_name=model_name,
+    #     hf_model=causal_lm,
+    #     tokenizer=tokenizer,
+    #     device=_device,
+    #     dtype=_dtype,
+    #     supported_model_name=supported_model_name,
+    # )
+
+    tl_lm = LayerSkipTransparentLlm(
         model_name=model_name,
-        hf_model=causal_lm,
-        tokenizer=tokenizer,
         device=_device,
         dtype=_dtype,
-        supported_model_name=supported_model_name,
     )
 
     return tl_lm
@@ -104,7 +110,7 @@ def run_model_with_session_caching(
 
 @st.cache_resource(
     hash_funcs={
-        TransformerLensTransparentLlm: id
+        LayerSkipTransparentLlm: id
     }
 )
 def get_contribution_graph(

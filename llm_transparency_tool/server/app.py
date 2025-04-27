@@ -22,7 +22,8 @@ from torch.amp import autocast
 from transformers import HfArgumentParser
 
 import llm_transparency_tool.components
-from llm_transparency_tool.models.tlens_model import TransformerLensTransparentLlm
+from llm_transparency_tool.models.tlens_model import LayerSkipTransparentLlm
+
 import llm_transparency_tool.routes.contributions as contributions
 import llm_transparency_tool.routes.graph
 from llm_transparency_tool.models.transparent_llm import TransparentLlm
@@ -71,7 +72,7 @@ def cached_build_paths_to_predictions(
 
 @st.cache_resource(
     hash_funcs={
-        TransformerLensTransparentLlm: id
+        LayerSkipTransparentLlm: id
     }
 )
 def cached_run_inference_and_populate_state(

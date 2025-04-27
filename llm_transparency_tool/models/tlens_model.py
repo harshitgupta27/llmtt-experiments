@@ -17,11 +17,12 @@ import streamlit as st
 
 from llm_transparency_tool.models.transparent_llm import ModelInfo, TransparentLlm
 from transformer_lens.loading_from_pretrained import MODEL_ALIASES, get_official_model_name
-from llm_transparency_tool.models.layerSkipCustom import LayerSkipLlamaTransparentLlm
+from llm_transparency_tool.models.layerSkipCustom import LayerSkipTransparentLlm
 
 @st.cache_resource
 def load_custom_model(model_name):
-    return LayerSkipLlamaTransparentLlm(model_name) # facebook/layerskip-llama3.2-1B
+    # return LayerSkipLlamaTransparentLlm(model_name) # facebook/layerskip-llama3.2-1B
+    return LayerSkipTransparentLlm(model_name)
 
 @dataclass
 class _RunInfo:
