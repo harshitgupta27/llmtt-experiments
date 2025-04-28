@@ -5,9 +5,9 @@ The code we implemented for the LLM Transparency Tool is split across 3 branches
 - user/harshitgupta/decoupledLayerskip
 
 The main branch has modifications done by us for the following-
-1. Added support to Enable LLM Transparency tool to be set up on MacOS.
+1. Added support to enable LLM Transparency tool on MacOS.
 2. Enhanced hardware capability, by extending the system to utilize MPS GPUs too, in addition to existing support for CUDA.
-3. programmaticLlmtt.py : This notebook allows invoking the LLM transparency tool functionality programmatically, allowing us to not rely just on the UI for our inferences, enabling users to configure models, input prompts, thresholds, and visualize graphs programmatically.
+3. programmaticLlmtt.ipynb : This notebook allows invoking the LLM transparency tool functionality programmatically, allowing us to not rely just on the UI for our inferences, enabling users to configure models, input prompts, thresholds, and visualize graphs programmatically.
 4. Support for multiple LlaMA models, including meta-llama/Llama-3.2-1B.
 5. Support for MBPP dataset using the custom mbppConverter.py script that allows us to extract problem descriptions from the MBPP dataset and flatten them into a plaintext format consumable by the tool.
 
