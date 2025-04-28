@@ -49,5 +49,5 @@ streamlit run llm_transparency_tool/server/app.py -- config/local.json
 ## Using programmaticLlmtt.ipynb:
 1. Open the file in an IDE of your choice
 2. Reuse the same conda environment created in the previous section.
-3. The file can then be run cell by cell. We have included the code for loading models, building graphs, and seeing its structure.
+3. The file can then be run cell by cell. We have included the code for loading models, building graphs, seeing its structure, as well as for computing average time of inferences.
 
